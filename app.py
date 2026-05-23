@@ -39,8 +39,8 @@ class SteelMaterial:
 
     def set_properties(self, prop_key: str, prop_value: Any) -> "SteelMaterial":
         prop_map = {
-            "fy": ["fy_40", "fy_80"],
-            "fu": ["fu_40", "fu_80"],
+            "fy": ["fy_40", "fy_100"],
+            "fu": ["fu_40", "fu_100"],
             "fe": ["fe"],
         }
 
