@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Steel Beam Design - Flask</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-slate-100 text-slate-900">
+    <main class="max-w-7xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold">Steel Beam Design Tool</h1>
+            <p class="text-slate-600 mt-1">
+                Simply supported steel beam with full-span uniform load, section properties, analysis diagrams, ULS checks and output summary.
+            </p>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <form id="beam-form" class="lg:col-span-1 bg-white rounded-xl shadow p-5 space-y-5">
+                <div>
+                    <h2 class="text-xl font-semibold mb-3">Input Parameters</h2>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Beam Length, L</span>
+                        <div class="relative">
+                            <input id="length_m" type="number" step="0.01" value="6.0" class="w-full border rounded-lg px-3 py-2 pr-12">
+                            <span class="absolute right-3 top-2.5 text-slate-500">m</span>
+                        </div>
+                    </label>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Steel Material</span>
+                        <select id="material" class="w-full border rounded-lg px-3 py-2">
+                            {% for material in materials %}
+                            <option value="{{ material }}">{{ material }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Steel Section</span>
+                        <select id="section" class="w-full border rounded-lg px-3 py-2">
+                            {% for section in sections %}
+                            <option value="{{ section }}" {% if section == "IPE 300" %}selected{% endif %}>{{ section }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+
+                <div class="border-t pt-5">
+                    <h2 class="text-xl font-semibold mb-3">Supports</h2>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Left Support</span>
+                        <select id="support_left" class="w-full border rounded-lg px-3 py-2">
+                            <option value="fixed" selected>Fixed</option>
+                            <option value="roller">Roller</option>
+                        </select>
+                    </label>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Right Support</span>
+                        <select id="support_right" class="w-full border rounded-lg px-3 py-2">
+                            <option value="fixed">Fixed</option>
+                            <option value="roller" selected>Roller</option>
+                        </select>
+                    </label>
+
+                    <p class="text-xs text-slate-500">
+                        Note: this version validates fixed/roller support options, while the analysis formula is for a simply supported single-span system.
+                    </p>
+                </div>
+
+                <div class="border-t pt-5">
+                    <h2 class="text-xl font-semibold mb-3">Load Inputs</h2>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Service Uniform Load</span>
+                        <div class="relative">
+                            <input id="w_service_kN_m" type="number" step="0.01" value="10.0" class="w-full border rounded-lg px-3 py-2 pr-20">
+                            <span class="absolute right-3 top-2.5 text-slate-500">kN/m</span>
+                        </div>
+                    </label>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Permanent Load, g<sub>k</sub></span>
+                        <div class="relative">
+                            <input id="g_k_kN_m" type="number" step="0.01" value="5.0" class="w-full border rounded-lg px-3 py-2 pr-20">
+                            <span class="absolute right-3 top-2.5 text-slate-500">kN/m</span>
+                        </div>
+                    </label>
+
+                    <label class="block mb-3">
+                        <span class="block text-sm font-medium mb-1">Variable Load, q<sub>k</sub></span>
+                        <div class="relative">
+                            <input id="q_k_kN_m" type="number" step="0.01" value="5.0" class="w-full border rounded-lg px-3 py-2 pr-20">
+                            <span class="absolute right-3 top-2.5 text-slate-500">kN/m</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="border-t pt-5">
+                    <h2 class="text-xl font-semibold mb-3">Design Parameters</h2>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <label>
+                            <span class="block text-sm font-medium mb-1">γM0</span>
+                            <input id="gamma_M0" type="number" step="0.01" value="1.0" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+
+                        <label>
+                            <span class="block text-sm font-medium mb-1">γM1</span>
+                            <input id="gamma_M1" type="number" step="0.01" value="1.0" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+
+                        <label>
+                            <span class="block text-sm font-medium mb-1">Lcr</span>
+                            <input id="L_cr_m" type="number" step="0.01" value="6.0" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+
+                        <label>
+                            <span class="block text-sm font-medium mb-1">C1</span>
+                            <input id="C1" type="number" step="0.01" value="1.0" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+
+                        <label>
+                            <span class="block text-sm font-medium mb-1">kc</span>
+                            <input id="kc" type="number" step="0.01" value="1.0" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+
+                        <label>
+                            <span class="block text-sm font-medium mb-1">ss, mm</span>
+                            <input id="s_s_mm" type="number" step="1" value="100" class="w-full border rounded-lg px-3 py-2">
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" id="analyze-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 py-3">
+                    Analyze & Design
+                </button>
+
+                <div id="error-box" class="hidden bg-red-50 border border-red-300 text-red-700 rounded-lg p-3 text-sm"></div>
+            </form>
+
+            <section class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-semibold mb-4">Steel Section Dynamic Plot</h2>
+                    <div id="section-svg" class="border rounded-lg overflow-hidden bg-slate-50 flex justify-center"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-semibold mb-4">Output Summary</h2>
+                    <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-semibold mb-4">Properties</h2>
+                    <div id="properties-output" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-semibold mb-4">Analysis Diagrams</h2>
+                    <div class="space-y-8">
+                        <canvas id="shearChart"></canvas>
+                        <canvas id="momentChart"></canvas>
+                        <canvas id="deflectionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-semibold mb-4">Design Results</h2>
+                    <div id="design-output" class="space-y-4 text-sm"></div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        const charts = {};
+
+        function numberValue(id) {
+            const value = Number(document.getElementById(id).value);
+            return Number.isFinite(value) ? value : 0;
+        }
+
+        function textValue(id) {
+            return document.getElementById(id).value;
+        }
+
+        function fmt(value, digits = 3) {
+            if (typeof value !== "number" || !Number.isFinite(value)) return value;
+            return value.toFixed(digits);
+        }
+
+        function passBadge(pass) {
+            return pass
+                ? `<span class="inline-flex px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">PASS</span>`
+                : `<span class="inline-flex px-2 py-1 rounded bg-red-100 text-red-700 font-semibold">FAIL</span>`;
+        }
+
+        function drawChart(canvasId, label, xData, yData, color, yTitle) {
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            const ctx = document.getElementById(canvasId).getContext("2d");
+
+            charts[canvasId] = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: xData,
+                    datasets: [{
+                        label: label,
+                        data: yData,
+                        borderColor: color,
+                        backgroundColor: color.replace("1)", "0.12)"),
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 0,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "x position, m"
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: yTitle
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function makeTable(title, data) {
+            const rows = Object.entries(data)
+                .map(([key, value]) => `
+                    <tr class="border-b">
+                        <td class="py-1 pr-3 font-medium text-slate-600">${key}</td>
+                        <td class="py-1 text-right">${typeof value === "number" ? fmt(value) : value}</td>
+                    </tr>
+                `)
+                .join("");
+
+            return `
+                <div class="border rounded-lg p-3">
+                    <h3 class="font-semibold mb-2">${title}</h3>
+                    <table class="w-full">${rows}</table>
+                </div>
+            `;
+        }
+
+        function renderSummary(summary) {
+            const cards = [
+                ["Section", summary.section],
+                ["Material", summary.material],
+                ["Length", `${fmt(summary.length_m, 2)} m`],
+                ["Service UDL", `${fmt(summary.service_uniform_load_kN_m, 2)} kN/m`],
+                ["ULS UDL", `${fmt(summary.ULS_uniform_load_kN_m, 2)} kN/m`],
+                ["Max Moment", `${fmt(summary.max_service_moment_kNm, 2)} kNm`],
+                ["Max Shear", `${fmt(summary.max_service_shear_kN, 2)} kN`],
+                ["Max Deflection", `${fmt(summary.max_service_deflection_mm, 3)} mm`],
+                ["Governing", `${summary.governing_check} / U=${fmt(summary.governing_utilisation, 3)}`],
+                ["Verdict", passBadge(summary.overall_pass)]
+            ];
+
+            document.getElementById("summary-cards").innerHTML = cards.map(([label, value]) => `
+                <div class="border rounded-lg p-3 bg-slate-50">
+                    <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                    <div class="text-lg font-semibold mt-1">${value}</div>
+                </div>
+            `).join("");
+        }
+
+        function renderProperties(properties) {
+            document.getElementById("properties-output").innerHTML = [
+                makeTable("Beam", properties.beam),
+                makeTable("Material", properties.material),
+                makeTable("Geometry", properties.geometry),
+                makeTable("Section Properties", properties.section_properties)
+            ].join("");
+        }
+
+        function renderDesign(design) {
+            const utilRows = Object.entries(design.utilisations).map(([key, value]) => `
+                <tr class="border-b">
+                    <td class="py-2 font-medium">${key}</td>
+                    <td class="py-2 text-right">${fmt(value, 3)}</td>
+                    <td class="py-2 text-right">${passBadge(value <= 1.0)}</td>
+                </tr>
+            `).join("");
+
+            document.getElementById("design-output").innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${makeTable("ULS Actions", design.actions)}
+                    ${makeTable("Classification", design.classification)}
+                    ${makeTable("Bending Resistance", design.bending)}
+                    ${makeTable("Shear Resistance", design.shear)}
+                    ${makeTable("LTB Resistance", design.ltb)}
+                    ${makeTable("Web Bearing", design.web_bearing)}
+                </div>
+
+                <div class="border rounded-lg p-3">
+                    <h3 class="font-semibold mb-2">Utilisation Summary</h3>
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b text-slate-600">
+                                <th class="py-2 text-left">Check</th>
+                                <th class="py-2 text-right">Utilisation</th>
+                                <th class="py-2 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${utilRows}</tbody>
+                    </table>
+                    <div class="mt-3">
+                        Governing check:
+                        <strong>${design.governing_check}</strong>
+                        ${passBadge(design.overall_pass)}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function runAnalysis(event) {
+            event.preventDefault();
+
+            const button = document.getElementById("analyze-btn");
+            const errorBox = document.getElementById("error-box");
+
+            errorBox.classList.add("hidden");
+            errorBox.textContent = "";
+
+            button.disabled = true;
+            button.textContent = "Running...";
+
+            const payload = {
+                length_m: numberValue("length_m"),
+                material: textValue("material"),
+                section: textValue("section"),
+                support_left: textValue("support_left"),
+                support_right: textValue("support_right"),
+                w_service_kN_m: numberValue("w_service_kN_m"),
+                g_k_kN_m: numberValue("g_k_kN_m"),
+                q_k_kN_m: numberValue("q_k_kN_m"),
+                gamma_M0: numberValue("gamma_M0"),
+                gamma_M1: numberValue("gamma_M1"),
+                L_cr_m: numberValue("L_cr_m"),
+                C1: numberValue("C1"),
+                kc: numberValue("kc"),
+                s_s_mm: numberValue("s_s_mm")
+            };
+
+            try {
+                const response = await fetch("/analyze", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || "Analysis failed.");
+                }
+
+                document.getElementById("section-svg").innerHTML = data.section_svg;
+
+                renderSummary(data.summary);
+                renderProperties(data.properties);
+                renderDesign(data.design);
+
+                const diagrams = data.analysis.diagrams;
+
+                drawChart(
+                    "shearChart",
+                    "Shear Force",
+                    diagrams.x_m,
+                    diagrams.shear_kN,
+                    "rgba(249, 115, 22, 1)",
+                    "Shear, kN"
+                );
+
+                drawChart(
+                    "momentChart",
+                    "Bending Moment",
+                    diagrams.x_m,
+                    diagrams.moment_kNm,
+                    "rgba(37, 99, 235, 1)",
+                    "Moment, kNm"
+                );
+
+                drawChart(
+                    "deflectionChart",
+                    "Deflection",
+                    diagrams.x_m,
+                    diagrams.deflection_mm,
+                    "rgba(124, 58, 237, 1)",
+                    "Deflection, mm"
+                );
+
+            } catch (error) {
+                errorBox.textContent = error.message;
+                errorBox.classList.remove("hidden");
+            } finally {
+                button.disabled = false;
+                button.textContent = "Analyze & Design";
+            }
+        }
+
+        document.getElementById("beam-form").addEventListener("submit", runAnalysis);
+
+        document.getElementById("length_m").addEventListener("input", () => {
+            document.getElementById("L_cr_m").value = document.getElementById("length_m").value;
+        });
+
+        window.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("beam-form").requestSubmit();
+        });
+    </script>
+</body>
+</html>

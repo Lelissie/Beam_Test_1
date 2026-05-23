@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../Pilot Project 2/steel_beam_pure_stdlib only"
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "Pilot Project 4"
+	}
+}
