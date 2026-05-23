@@ -19,7 +19,7 @@ app = Flask(__name__)
 
 class SupportType(Enum):
     FIXED = "fixed"
-    ROLLER = "roller"
+    ROLLER = "Free"
 
 
 # ============================================================
